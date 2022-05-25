@@ -235,15 +235,18 @@ def reserve(tokens):
             print("No caregiver is available!")
             return
 
-        vaccine = Vaccine(tokens[2]).get()
+        vaccine = Vaccine(tokens[2], 0).get()
         if vaccine is None or vaccine.get_available_doses() < 1:
             print("Not enough available doses!")
             return
+        else:
+            print(str(vaccine))
 
-        # vaccine.decrease_available_doses(1)
-        # remove_availability(caregiver, d)
-        # create_appointment(d, caregiver, vaccine.get_vaccine_name(), current_patient.get_username())
-    except:
+        vaccine.decrease_available_doses(1)
+        remove_availability(caregiver, d)
+        create_appointment(d, caregiver, vaccine.get_vaccine_name(), current_patient.get_username())
+    except Exception as E:
+        print(str(E))
         print("Please try again!")
 
 def create_appointment(date, caregiver, vaccine, patient):
@@ -254,6 +257,7 @@ def create_appointment(date, caregiver, vaccine, patient):
     appointment = "INSERT INTO Appointments VALUES(%s, %s, %s, %s)"
     try:
         cursor.execute(appointment, (date, caregiver, vaccine, patient))
+        conn.commit()
     except:
         raise
     finally:
@@ -266,7 +270,8 @@ def remove_availability(caregiver, date):
 
     availability = "DELETE FROM Availabilities WHERE Username = %s AND Time = %s"
     try:
-        cursor.execute(availability, (caregiver, d))
+        cursor.execute(availability, (caregiver, date))
+        conn.commit()
     except pymssql.Error as e:
         raise e
     finally:
@@ -277,16 +282,17 @@ def get_available_caregiver(date):
     conn = cm.create_connection()
     cursor = conn.cursor()
 
-    availability = "SELECT Username FROM Availabilities WHERE Time = %s ORDER BY Username ASC LIMIT 1"
+    availability = "SELECT Top 1 Username FROM Availabilities WHERE Time = %s ORDER BY Username ASC"
     try:
         cursor.execute(availability, date)
-        if (cursor.rowcount == 0):
-            return None
+        # if (cursor.rowcount == 0):
+        #     return None
 
         for row in cursor:
             return str(row[0])
 
     except pymssql.Error as e:
+        print(e)
         raise e
     finally:
         cm.close_connection()

@@ -74,11 +74,7 @@ class Caregiver:
         try:
             cursor.execute(appointment_details, self.username)
             for row in cursor:
-                Id = row['Id']
-                Vaccine = row['Vaccine']
-                Time = row['Time']
-                Patient = row['Patient']
-                print(Id + " " + Vaccine + " " + Time + " " + Patient)
+                print(str(row[0]) + " " + str(row[1]) + " " + str(row[2]) + " " + str(row[3]))
         except pymssql.Error as e:
             raise e
         finally:
