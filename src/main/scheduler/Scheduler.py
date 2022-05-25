@@ -197,32 +197,14 @@ def search_caregiver_schedule(tokens):
     year = int(date_tokens[2])
     try:
         d = datetime.datetime(year, month, day)
-        cm = ConnectionManager()
-        conn = cm.create_connection()
-        cursor = conn.cursor()
-        cursor2 = conn.cursor()
+        print("Caregivers available on " + tokens[1])
+        print_available_caregiver(d)
+        print("Vaccines available on " + tokens[1])
+        print_available_vaccine()
 
-        availability = "SELECT Time, Username FROM Availabilities WHERE Time = %s ORDER BY Username ASC"
-        vaccine = "SELECT Doses, Name FROM Vaccines"
-        cursor.execute(availability, d)
-        cursor2.execute(vaccine)
-
-        # Availability
-        for row in cursor:
-            Time = row['Time']
-            Username = row['Username']
-            print(Time + " " + Username)
-
-        # Vaccine
-        for row in cursor2:
-            Doses = row['Doses']
-            Name = row['Name']
-            print(Name + " " + Doses)
-
-    except:
+    except Exception as E:
+        print(E)
         print("Please try again!")
-    finally:
-        cm.close_connection()
 
 
 def reserve(tokens):
@@ -247,16 +229,98 @@ def reserve(tokens):
 
     try:
         d = datetime.datetime(year, month, day)
-        if (no caregiver):
+
+        caregiver = get_available_caregiver(d)
+        if (caregiver is None):
             print("No caregiver is available!")
             return
-        if (no vaccine):
+
+        vaccine = Vaccine(tokens[2]).get()
+        if vaccine is None or vaccine.get_available_doses() < 1:
             print("Not enough available doses!")
             return
 
-        createappointment # Modified vaccine and availability + appointment
+        # vaccine.decrease_available_doses(1)
+        # remove_availability(caregiver, d)
+        # create_appointment(d, caregiver, vaccine.get_vaccine_name(), current_patient.get_username())
     except:
         print("Please try again!")
+
+def create_appointment(date, caregiver, vaccine, patient):
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+    cursor = conn.cursor()
+
+    appointment = "INSERT INTO Appointments VALUES(%s, %s, %s, %s)"
+    try:
+        cursor.execute(appointment, (date, caregiver, vaccine, patient))
+    except:
+        raise
+    finally:
+        cm.close_connection()
+
+def remove_availability(caregiver, date):
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+    cursor = conn.cursor()
+
+    availability = "DELETE FROM Availabilities WHERE Username = %s AND Time = %s"
+    try:
+        cursor.execute(availability, (caregiver, d))
+    except pymssql.Error as e:
+        raise e
+    finally:
+        cm.close_connection()
+
+def get_available_caregiver(date):
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+    cursor = conn.cursor()
+
+    availability = "SELECT Username FROM Availabilities WHERE Time = %s ORDER BY Username ASC LIMIT 1"
+    try:
+        cursor.execute(availability, date)
+        if (cursor.rowcount == 0):
+            return None
+
+        for row in cursor:
+            return str(row[0])
+
+    except pymssql.Error as e:
+        raise e
+    finally:
+        cm.close_connection()
+
+
+def print_available_caregiver(date):
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+    cursor = conn.cursor()
+
+    availability = "SELECT Username FROM Availabilities WHERE Time = %s ORDER BY Username ASC"
+    try:
+        cursor.execute(availability, date)
+        for row in cursor:
+            print("- " + str(row[0]))
+    except pymssql.Error as e:
+        raise e
+    finally:
+        cm.close_connection()
+
+def print_available_vaccine():
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+    cursor = conn.cursor()
+
+    get_vaccine = "SELECT Name, Doses FROM Vaccines"
+    try:
+        cursor.execute(get_vaccine)
+        for row in cursor:
+            print("- " + str(row[0]) + " " + str(row[1]))
+    except pymssql.Error as e:
+        raise e
+    finally:
+        cm.close_connection()
 
 
 def upload_availability(tokens):
