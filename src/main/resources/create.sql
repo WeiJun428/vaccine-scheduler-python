@@ -25,7 +25,7 @@ CREATE TABLE Patients (
 );
 
 CREATE TABLE Appointments (
-    Id int,
+    Id int(1, 1),
     Time date,
     Caregiver varchar(255) REFERENCES Caregivers,
     Vaccine varchar(255) REFERENCES Vaccines,

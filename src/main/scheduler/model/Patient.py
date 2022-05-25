@@ -64,3 +64,23 @@ class Patient:
             raise
         finally:
             cm.close_connection()
+
+    def show_appointments(self):
+        cm = ConnectionManager()
+        conn = cm.create_connection()
+        cursor = conn.cursor()
+
+        appointment_details = "SELECT Id, Vaccine, Time, Caregiver FROM Appointments WHERE Patient = %s ORDER BY Id"
+        try:
+            cursor.execute(appointment_details, self.username)
+            for row in cursor:
+                Id = row['Id']
+                Vaccine = row['Vaccine']
+                Time = row['Time']
+                Caregiver = row['Caregiver']
+                print(Id + " " + Vaccine + " " + Time + " " + Caregiver)
+        except pymssql.Error as e:
+            raise e
+        finally:
+            cm.close_connection()
+        return

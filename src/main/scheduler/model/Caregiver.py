@@ -65,6 +65,26 @@ class Caregiver:
         finally:
             cm.close_connection()
 
+    def show_appointments(self):
+        cm = ConnectionManager()
+        conn = cm.create_connection()
+        cursor = conn.cursor()
+
+        appointment_details = "SELECT Id, Vaccine, Time, Patient FROM Appointments WHERE Caregiver = %s ORDER BY Id"
+        try:
+            cursor.execute(appointment_details, self.username)
+            for row in cursor:
+                Id = row['Id']
+                Vaccine = row['Vaccine']
+                Time = row['Time']
+                Patient = row['Patient']
+                print(Id + " " + Vaccine + " " + Time + " " + Patient)
+        except pymssql.Error as e:
+            raise e
+        finally:
+            cm.close_connection()
+        return
+
     # Insert availability with parameter date d
     def upload_availability(self, d):
         cm = ConnectionManager()

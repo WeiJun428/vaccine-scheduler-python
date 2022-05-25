@@ -181,17 +181,82 @@ def login_caregiver(tokens):
 
 
 def search_caregiver_schedule(tokens):
-    """
-    TODO: Part 2
-    """
-    pass
+    if current_caregiver is None and current_patient is None:
+        print("Please login first!")
+        return
+
+    if len(tokens) != 2:
+        print("Please try again!")
+        return
+
+    date = tokens[1]
+    # assume input is hyphenated in the format mm-dd-yyyy
+    date_tokens = date.split("-")
+    month = int(date_tokens[0])
+    day = int(date_tokens[1])
+    year = int(date_tokens[2])
+    try:
+        d = datetime.datetime(year, month, day)
+        cm = ConnectionManager()
+        conn = cm.create_connection()
+        cursor = conn.cursor()
+        cursor2 = conn.cursor()
+
+        availability = "SELECT Time, Username FROM Availabilities WHERE Time = %s ORDER BY Username ASC"
+        vaccine = "SELECT Doses, Name FROM Vaccines"
+        cursor.execute(availability, d)
+        cursor2.execute(vaccine)
+
+        # Availability
+        for row in cursor:
+            Time = row['Time']
+            Username = row['Username']
+            print(Time + " " + Username)
+
+        # Vaccine
+        for row in cursor2:
+            Doses = row['Doses']
+            Name = row['Name']
+            print(Name + " " + Doses)
+
+    except:
+        print("Please try again!")
+    finally:
+        cm.close_connection()
 
 
 def reserve(tokens):
-    """
-    TODO: Part 2
-    """
-    pass
+    if current_caregiver is None and current_patient is None:
+        print("Please login first!")
+        return
+
+    if current_patient is None:
+        print("Please login as a patient first!")
+        return
+
+    if len(tokens) != 3:
+        print("Please try again!")
+        return
+
+    date = tokens[1]
+    # assume input is hyphenated in the format mm-dd-yyyy
+    date_tokens = date.split("-")
+    month = int(date_tokens[0])
+    day = int(date_tokens[1])
+    year = int(date_tokens[2])
+
+    try:
+        d = datetime.datetime(year, month, day)
+        if (no caregiver):
+            print("No caregiver is available!")
+            return
+        if (no vaccine):
+            print("Not enough available doses!")
+            return
+
+        createappointment # Modified vaccine and availability + appointment
+    except:
+        print("Please try again!")
 
 
 def upload_availability(tokens):
@@ -294,10 +359,19 @@ def add_doses(tokens):
 
 
 def show_appointments(tokens):
-    '''
-    TODO: Part 2
-    '''
-    pass
+    if current_caregiver is None and current_patient is None:
+        print("Please login first!")
+        return
+
+    try:
+        if (current_caregiver is not None):
+            current_caregiver.show_appointments()
+
+        if (current_patient is not None):
+            current_patient.show_appointments()
+    except:
+        print("Please try again!")
+        return
 
 
 def logout(tokens):
