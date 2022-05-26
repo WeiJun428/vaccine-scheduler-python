@@ -20,7 +20,7 @@ current_caregiver = None
 Helper Functions
 '''
 
-
+# Check if the `username` already exists in the `role` table.
 def username_exists(username, role):
     cm = ConnectionManager()
     conn = cm.create_connection()
@@ -43,7 +43,7 @@ def username_exists(username, role):
         cm.close_connection()
     return False
 
-
+# Print the available caregivers and vaccines on the given date
 def print_availability(date):
     cm = ConnectionManager()
     conn = cm.create_connection()
@@ -74,6 +74,7 @@ def print_availability(date):
         cm.close_connection()
 
 
+# Get the name of first caregiver available on the given date
 def get_available_caregiver(date):
     cm = ConnectionManager()
     conn = cm.create_connection()
@@ -98,6 +99,7 @@ def get_available_caregiver(date):
     finally:
         cm.close_connection()
 
+# Create an appointment
 def create_appointment(date, caregiver, vaccine, patient):
     cm = ConnectionManager()
     conn = cm.create_connection()
@@ -139,6 +141,7 @@ def create_appointment(date, caregiver, vaccine, patient):
         cm.close_connection()
 
 
+# Delete an appointment
 def delete_appointment(Id):
     cm = ConnectionManager()
     conn = cm.create_connection()
