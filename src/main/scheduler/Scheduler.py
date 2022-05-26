@@ -16,6 +16,152 @@ current_patient = None
 
 current_caregiver = None
 
+'''
+Helper Functions
+'''
+
+
+def username_exists(username, role):
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+
+    select_username = "SELECT * FROM " + role + " WHERE Username = %s"
+    try:
+        cursor = conn.cursor(as_dict=True)
+        cursor.execute(select_username, username)
+        #  returns false if the cursor is not before the first record or if there are no rows in the ResultSet.
+        for row in cursor:
+            return row['Username'] is not None
+    except pymssql.Error as e:
+        print("Error occurred when checking username")
+        print("Db-Error:", e)
+        quit()
+    except Exception as e:
+        print("Error occurred when checking username")
+        print("Error:", e)
+    finally:
+        cm.close_connection()
+    return False
+
+
+def print_availability(date):
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+    cursor = conn.cursor()
+
+    availability = "SELECT Username FROM Availabilities WHERE Time = %s ORDER BY Username ASC"
+    get_vaccine = "SELECT Name, Doses FROM Vaccines"
+    try:
+        cursor.execute(get_vaccine)
+        doses = " "
+        print("Caregiver", end = " ")
+        for row in cursor:
+            print(str(row[0]), end = " ")
+            doses += str(row[1]) + " "
+        print()
+        cursor.execute(availability, date)
+        for row in cursor:
+            print(str(row[0]) + doses)
+
+    except pymssql.Error as e:
+        raise e
+    finally:
+        cm.close_connection()
+
+
+def get_available_caregiver(date):
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+    cursor = conn.cursor()
+
+    availability = "SELECT Top 1 Username FROM Availabilities WHERE Time = %s ORDER BY Username ASC"
+    try:
+        cursor.execute(availability, date)
+        if (cursor.rowcount == 0):
+            return None
+
+        for row in cursor:
+            return str(row[0])
+
+    except pymssql.Error as e:
+        print(e)
+        raise e
+    finally:
+        cm.close_connection()
+
+def create_appointment(date, caregiver, vaccine, patient):
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+    cursor = conn.cursor()
+
+    delete_availability = "DELETE FROM Availabilities WHERE Username = %s AND Time = %s"
+    update_vaccine_availability = "UPDATE vaccines SET Doses = %d WHERE name = %s"
+    insert_appointment = """
+        DECLARE @temp TABLE (Id int, Caregiver VARCHAR(255))
+        INSERT INTO Appointments OUTPUT Inserted.ID, Inserted.Caregiver INTO @temp VALUES (%s, %s, %s, %s)
+        SELECT * FROM @temp
+    """
+
+    try:
+        cursor.execute(
+            delete_availability,
+            (caregiver, date)
+        )
+        cursor.execute(
+            update_vaccine_availability,
+            (vaccine.get_available_doses() - 1, vaccine.get_vaccine_name())
+        )
+        cursor.execute(
+            insert_appointment,
+            (date, caregiver, vaccine.get_vaccine_name(), patient)
+        )
+        for row in cursor:
+            print("Appointment ID: " + str(row[0]) + " Caregiver username: " + str(row[1]))
+        conn.commit()
+
+    except Exception as E:
+        print(str(E))
+        raise E
+    finally:
+        cm.close_connection()
+
+
+def delete_appointment(Id):
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+    cursor = conn.cursor()
+
+    delete_appointment = """
+        DECLARE @temp TABLE (Time date, Caregiver VARCHAR(255), Vaccine VARCHAR(255))
+        DELETE FROM Appointments OUTPUT Deleted.Time, Deleted.Caregiver, Deleted.Vaccine INTO @temp WHERE Id = %s
+        SELECT * FROM @temp
+    """
+    insert_availability = "INSERT INTO Availabilities VALUES (%s, %s)"
+    get_vaccine_doses = "SELECT Doses FROM Vaccines WHERE name = %s"
+    update_vaccine_availability = "UPDATE vaccines SET Doses = %d WHERE name = %s"
+
+    try:
+        cursor.execute(delete_appointment, Id)
+        deleted = cursor.fetchall()
+        for row in deleted:
+            cursor.execute(insert_availability, (str(row[0]), str(row[1])))
+            cursor.execute(get_vaccine_doses, str(row[2]))
+            dose = cursor.fetchall()
+            for inner_row in dose:
+                cursor.execute(update_vaccine_availability, (inner_row[0], str(row[2])))
+
+        conn.commit()
+
+    except Exception as E:
+        print(str(E))
+        raise E
+    finally:
+        cm.close_connection()
+
+
+'''
+Command Functions
+'''
 
 def create_patient(tokens):
     # create_patient <username> <password>
@@ -29,6 +175,9 @@ def create_patient(tokens):
     # check 2: check if the username has been taken already
     if username_exists(username, "Patients"):
         print("Username taken, try again!")
+        return
+
+    if (not Util.strong_password(tokens[2])):
         return
 
     salt = Util.generate_salt()
@@ -65,6 +214,9 @@ def create_caregiver(tokens):
         print("Username taken, try again!")
         return
 
+    if (not Util.strong_password(tokens[2])):
+        return
+
     salt = Util.generate_salt()
     hash = Util.generate_hash(password, salt)
 
@@ -83,29 +235,6 @@ def create_caregiver(tokens):
         print(e)
         return
     print("Created user ", username)
-
-
-def username_exists(username, role):
-    cm = ConnectionManager()
-    conn = cm.create_connection()
-
-    select_username = "SELECT * FROM " + role + " WHERE Username = %s"
-    try:
-        cursor = conn.cursor(as_dict=True)
-        cursor.execute(select_username, username)
-        #  returns false if the cursor is not before the first record or if there are no rows in the ResultSet.
-        for row in cursor:
-            return row['Username'] is not None
-    except pymssql.Error as e:
-        print("Error occurred when checking username")
-        print("Db-Error:", e)
-        quit()
-    except Exception as e:
-        print("Error occurred when checking username")
-        print("Error:", e)
-    finally:
-        cm.close_connection()
-    return False
 
 
 def login_patient(tokens):
@@ -197,10 +326,7 @@ def search_caregiver_schedule(tokens):
     year = int(date_tokens[2])
     try:
         d = datetime.datetime(year, month, day)
-        print("Caregivers available on " + tokens[1])
-        print_available_caregiver(d)
-        print("Vaccines available on " + tokens[1])
-        print_available_vaccine()
+        print_availability(d)
 
     except Exception as E:
         print(E)
@@ -239,94 +365,11 @@ def reserve(tokens):
         if vaccine is None or vaccine.get_available_doses() < 1:
             print("Not enough available doses!")
             return
-        else:
-            print(str(vaccine))
 
-        vaccine.decrease_available_doses(1)
-        remove_availability(caregiver, d)
-        create_appointment(d, caregiver, vaccine.get_vaccine_name(), current_patient.get_username())
+        create_appointment(d, caregiver, vaccine, current_patient.get_username())
     except Exception as E:
         print(str(E))
         print("Please try again!")
-
-def create_appointment(date, caregiver, vaccine, patient):
-    cm = ConnectionManager()
-    conn = cm.create_connection()
-    cursor = conn.cursor()
-
-    appointment = "INSERT INTO Appointments VALUES(%s, %s, %s, %s)"
-    try:
-        cursor.execute(appointment, (date, caregiver, vaccine, patient))
-        conn.commit()
-    except:
-        raise
-    finally:
-        cm.close_connection()
-
-def remove_availability(caregiver, date):
-    cm = ConnectionManager()
-    conn = cm.create_connection()
-    cursor = conn.cursor()
-
-    availability = "DELETE FROM Availabilities WHERE Username = %s AND Time = %s"
-    try:
-        cursor.execute(availability, (caregiver, date))
-        conn.commit()
-    except pymssql.Error as e:
-        raise e
-    finally:
-        cm.close_connection()
-
-def get_available_caregiver(date):
-    cm = ConnectionManager()
-    conn = cm.create_connection()
-    cursor = conn.cursor()
-
-    availability = "SELECT Top 1 Username FROM Availabilities WHERE Time = %s ORDER BY Username ASC"
-    try:
-        cursor.execute(availability, date)
-        # if (cursor.rowcount == 0):
-        #     return None
-
-        for row in cursor:
-            return str(row[0])
-
-    except pymssql.Error as e:
-        print(e)
-        raise e
-    finally:
-        cm.close_connection()
-
-
-def print_available_caregiver(date):
-    cm = ConnectionManager()
-    conn = cm.create_connection()
-    cursor = conn.cursor()
-
-    availability = "SELECT Username FROM Availabilities WHERE Time = %s ORDER BY Username ASC"
-    try:
-        cursor.execute(availability, date)
-        for row in cursor:
-            print("- " + str(row[0]))
-    except pymssql.Error as e:
-        raise e
-    finally:
-        cm.close_connection()
-
-def print_available_vaccine():
-    cm = ConnectionManager()
-    conn = cm.create_connection()
-    cursor = conn.cursor()
-
-    get_vaccine = "SELECT Name, Doses FROM Vaccines"
-    try:
-        cursor.execute(get_vaccine)
-        for row in cursor:
-            print("- " + str(row[0]) + " " + str(row[1]))
-    except pymssql.Error as e:
-        raise e
-    finally:
-        cm.close_connection()
 
 
 def upload_availability(tokens):
@@ -366,11 +409,20 @@ def upload_availability(tokens):
 
 
 def cancel(tokens):
-    """
-    TODO: Extra Credit
-    """
-    pass
+    if current_caregiver is None and current_patient is None:
+        print("Please login first!")
+        return
 
+    if len(tokens) != 2:
+        print("Please try again!")
+        return
+
+    try:
+        delete_appointment(tokens[1])
+    except Exception as e:
+        print("Error:", e)
+        return
+    print("Appointment cancelled!")
 
 def add_doses(tokens):
     #  add_doses <vaccine> <number>
@@ -433,6 +485,7 @@ def show_appointments(tokens):
         print("Please login first!")
         return
 
+    # Assume that only one user is logged in at a time
     try:
         if (current_caregiver is not None):
             current_caregiver.show_appointments()
@@ -441,7 +494,6 @@ def show_appointments(tokens):
             current_patient.show_appointments()
     except:
         print("Please try again!")
-        return
 
 
 def logout(tokens):
@@ -449,10 +501,6 @@ def logout(tokens):
     global current_caregiver
     if current_caregiver is None and current_patient is None:
         print("Please login first.")
-        return
-
-    if current_caregiver is not None and current_patient is not None:
-        print("Please try again!")  # Error, both caregiver and patient are logged in
         return
 
     current_patient = None
@@ -478,24 +526,26 @@ def start():
         print("> logout") #// TODO: implement logout (Part 2)
         print("> Quit")
         print()
-        response = ""
+        original_response = ""
         print("> Enter: ", end='')
 
         try:
-            response = str(input())
+            original_response = str(input())
         except ValueError:
             print("Type in a valid argument")
             break
 
-        response = response.lower()
+        response = original_response.lower()
         tokens = response.split(" ")
         if len(tokens) == 0:
             ValueError("Try Again")
             continue
         operation = tokens[0]
         if operation == "create_patient":
+            tokens = original_response.split(" ")
             create_patient(tokens)
         elif operation == "create_caregiver":
+            tokens = original_response.split(" ")
             create_caregiver(tokens)
         elif operation == "login_patient":
             login_patient(tokens)
@@ -507,7 +557,7 @@ def start():
             reserve(tokens)
         elif operation == "upload_availability":
             upload_availability(tokens)
-        elif operation == cancel:
+        elif operation == "cancel":
             cancel(tokens)
         elif operation == "add_doses":
             add_doses(tokens)
