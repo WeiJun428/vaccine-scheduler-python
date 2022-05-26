@@ -64,7 +64,12 @@ def print_availability(date):
             print(str(row[0]) + doses)
 
     except pymssql.Error as e:
-        raise e
+        print("Error occurred when checking username")
+        print("Db-Error:", e)
+        quit()
+    except Exception as e:
+        print("Error occurred when checking username")
+        print("Error:", e)
     finally:
         cm.close_connection()
 
@@ -84,8 +89,12 @@ def get_available_caregiver(date):
             return str(row[0])
 
     except pymssql.Error as e:
-        print(e)
-        raise e
+        print("Error occurred when checking username")
+        print("Db-Error:", e)
+        quit()
+    except Exception as e:
+        print("Error occurred when checking username")
+        print("Error:", e)
     finally:
         cm.close_connection()
 
@@ -119,9 +128,13 @@ def create_appointment(date, caregiver, vaccine, patient):
             print("Appointment ID: " + str(row[0]) + " Caregiver username: " + str(row[1]))
         conn.commit()
 
-    except Exception as E:
-        print(str(E))
-        raise E
+    except pymssql.Error as e:
+        print("Error occurred when checking username")
+        print("Db-Error:", e)
+        quit()
+    except Exception as e:
+        print("Error occurred when checking username")
+        print("Error:", e)
     finally:
         cm.close_connection()
 
@@ -152,9 +165,13 @@ def delete_appointment(Id):
 
         conn.commit()
 
-    except Exception as E:
-        print(str(E))
-        raise E
+    except pymssql.Error as e:
+        print("Error occurred when checking username")
+        print("Db-Error:", e)
+        quit()
+    except Exception as e:
+        print("Error occurred when checking username")
+        print("Error:", e)
     finally:
         cm.close_connection()
 
