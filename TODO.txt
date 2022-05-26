@@ -1,5 +1,1 @@
 Questions to be answered:
-- Make sure that the vaccine updated is correct (in same transaction?)
-- Make sure that the output format is correct
-- ERD schema check-in
-- can use auto-increment and virtual table?

@@ -29,21 +29,24 @@ def username_exists(username, role):
     try:
         cursor = conn.cursor(as_dict=True)
         cursor.execute(select_username, username)
-        #  returns false if the cursor is not before the first record or if there are no rows in the ResultSet.
+
+        #  returns false
+        #   - if the cursor is not before the first record or
+        #   - if there are no rows in the ResultSet.
+
         for row in cursor:
             return row['Username'] is not None
     except pymssql.Error as e:
-        print("Error occurred when checking username")
         print("Db-Error:", e)
         quit()
     except Exception as e:
-        print("Error occurred when checking username")
         print("Error:", e)
     finally:
         cm.close_connection()
     return False
 
 # Print the available caregivers and vaccines on the given date
+# If no caregiver or vaccine is available, print nothing
 def print_availability(date):
     cm = ConnectionManager()
     conn = cm.create_connection()
@@ -53,22 +56,32 @@ def print_availability(date):
     get_vaccine = "SELECT Name, Doses FROM Vaccines"
     try:
         cursor.execute(get_vaccine)
+
+        # No vaccine is available
+        if (cursor.rowcount == 0):
+            return
+
+        header = "Caregiver "
         doses = " "
-        print("Caregiver", end = " ")
         for row in cursor:
-            print(str(row[0]), end = " ")
+            header += str(row[0]) + " "
             doses += str(row[1]) + " "
-        print()
+
         cursor.execute(availability, date)
+
+        # No caregiver is available
+        if (cursor.rowcount == 0):
+            return
+
+        # Print the output with headers
+        print(header)
         for row in cursor:
             print(str(row[0]) + doses)
 
     except pymssql.Error as e:
-        print("Error occurred when checking username")
         print("Db-Error:", e)
         quit()
     except Exception as e:
-        print("Error occurred when checking username")
         print("Error:", e)
     finally:
         cm.close_connection()
@@ -90,16 +103,15 @@ def get_available_caregiver(date):
             return str(row[0])
 
     except pymssql.Error as e:
-        print("Error occurred when checking username")
         print("Db-Error:", e)
         quit()
     except Exception as e:
-        print("Error occurred when checking username")
         print("Error:", e)
     finally:
         cm.close_connection()
 
 # Create an appointment
+# Assume that the vaccine count and availability has not changed
 def create_appointment(date, caregiver, vaccine, patient):
     cm = ConnectionManager()
     conn = cm.create_connection()
@@ -131,11 +143,9 @@ def create_appointment(date, caregiver, vaccine, patient):
         conn.commit()
 
     except pymssql.Error as e:
-        print("Error occurred when checking username")
         print("Db-Error:", e)
         quit()
     except Exception as e:
-        print("Error occurred when checking username")
         print("Error:", e)
     finally:
         cm.close_connection()
@@ -164,20 +174,42 @@ def delete_appointment(Id):
             cursor.execute(get_vaccine_doses, str(row[2]))
             dose = cursor.fetchall()
             for inner_row in dose:
-                cursor.execute(update_vaccine_availability, (inner_row[0], str(row[2])))
+                cursor.execute(update_vaccine_availability, (inner_row[0] + 1, str(row[2])))
 
         conn.commit()
 
     except pymssql.Error as e:
-        print("Error occurred when checking username")
         print("Db-Error:", e)
         quit()
     except Exception as e:
-        print("Error occurred when checking username")
         print("Error:", e)
     finally:
         cm.close_connection()
 
+def appointment_exists(Id):
+    cm = ConnectionManager()
+    conn = cm.create_connection()
+    cursor = conn.cursor()
+
+    appointment = "SELECT Caregiver, Patient FROM Appointments WHERE Id = %d"
+
+    try:
+        cursor.execute(appointment, Id)
+        for row in cursor:
+            # Check if the username match (user can't delete other's appointment)
+            if (current_patient is not None and current_patient.get_username() == str(row[1])):
+                return True
+            if (current_caregiver is not None and current_caregiver.get_username() == str(row[0])):
+                return True
+
+        return False
+    except pymssql.Error as e:
+        print("Db-Error:", e)
+        quit()
+    except Exception as e:
+        print("Error:", e)
+    finally:
+        cm.close_connection()
 
 '''
 Command Functions
@@ -438,11 +470,14 @@ def cancel(tokens):
         return
 
     try:
+        if (not appointment_exists(tokens[1])):
+            print("You do not have an appointment with Id: " + tokens[1])
+            return
+
         delete_appointment(tokens[1])
+        print("Appointment cancelled!")
     except Exception as e:
         print("Error:", e)
-        return
-    print("Appointment cancelled!")
 
 def add_doses(tokens):
     #  add_doses <vaccine> <number>
