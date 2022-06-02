@@ -391,7 +391,7 @@ def reserve(tokens):
         return
 
     if current_patient is None:
-        print("Please login as a patient first!")
+        print("Please login as a patient!")
         return
 
     if len(tokens) != 3:
