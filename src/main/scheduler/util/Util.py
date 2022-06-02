@@ -40,10 +40,6 @@ class Util:
                 alpha = True
 
         if (not (lower and upper)):
-            if (lower):
-                print("Lower")
-            if (upper):
-                print("Upper")
             print("Password should have a mixture of both uppercase and lowercase letters.")
             return False
 

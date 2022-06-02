@@ -603,8 +603,10 @@ def start():
             tokens = original_response.split(" ")
             create_caregiver(tokens)
         elif operation == "login_patient":
+            tokens = original_response.split(" ")
             login_patient(tokens)
         elif operation == "login_caregiver":
+            tokens = original_response.split(" ")
             login_caregiver(tokens)
         elif operation == "search_caregiver_schedule":
             search_caregiver_schedule(tokens)
